@@ -29,12 +29,14 @@ import com.android.launcher3.icons.GraphicsUtils.getColorMultipliedFilter
 import com.android.launcher3.icons.GraphicsUtils.resizeToContentSize
 import com.android.launcher3.icons.IconShape
 import com.android.launcher3.icons.R
+import com.android.launcher3.icons.ThemedIconBackdrop
 
 /** Drawing delegate handle monochrome themed app icons */
 class ThemedIconDelegate(
     constantState: ThemedIconInfo,
     val bitmapInfo: BitmapInfo,
     val paint: Paint,
+    private val host: FastBitmapDrawable? = null,
 ) : FastBitmapDrawableDelegate {
 
     private val colorFg = constantState.colorFg
@@ -59,14 +61,28 @@ class ThemedIconDelegate(
         bounds: Rect,
         paint: Paint,
     ) {
-        canvas.drawBitmap(iconShape.shadowLayer, null, bounds, paint)
+        // The shadow layer is a rim drawn under the flat themed fill. With the fill replaced by
+        // a blur region there is nothing for it to sit under, so it reads as a hard border
+        // around every icon.
+        if (!hasBackdrop()) {
+            canvas.drawBitmap(iconShape.shadowLayer, null, bounds, paint)
+        }
 
         canvas.resizeToContentSize(bounds, iconShape.pathSize.toFloat()) {
             clipPath(iconShape.path)
-            drawPaint(paint)
+            // When the blurred backdrop is on, the launcher has already punched a transparent
+            // hole here and handed the region to SurfaceFlinger, which composites the real blur
+            // behind the window. Filling with the flat themed colour would paint straight over
+            // it, so the fill is skipped and only the glyph is drawn.
+            if (!hasBackdrop()) {
+                drawPaint(paint)
+            }
             drawBitmap(monoIcon, null, shapeBounds, monoPaint)
         }
     }
+
+    /** True when the host punched a blur region behind this icon for this frame. */
+    private fun hasBackdrop() = ThemedIconBackdrop.isEnabled && host?.backdropActive == true
 
     override fun setAlpha(alpha: Int) {
         monoPaint.alpha = alpha
@@ -82,6 +98,7 @@ class ThemedIconDelegate(
 
     companion object {
         const val TAG: String = "ThemedIconDrawable"
+
 
         /** Get an int array representing background and foreground colors for themed icons */
         @JvmStatic
@@ -103,5 +120,5 @@ class ThemedIconInfo(val mono: Bitmap, val colorBg: Int, val colorFg: Int) : Del
         iconShape: IconShape,
         paint: Paint,
         host: FastBitmapDrawable,
-    ) = ThemedIconDelegate(this, bitmapInfo, paint)
+    ) = ThemedIconDelegate(this, bitmapInfo, paint, host)
 }

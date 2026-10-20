@@ -94,6 +94,15 @@ constructor(
         delegate.onBoundsChange(bounds)
     }
 
+    /**
+     * True when the host view has punched a blur region behind this icon for this frame.
+     *
+     * The themed delegate must skip its flat fill only for icons that actually got a backdrop.
+     * The setting alone is not enough: it is global, but only workspace icons punch a hole, so
+     * keying off the setting left drawer icons with no background at all.
+     */
+    @JvmField var backdropActive: Boolean = false
+
     override fun draw(canvas: Canvas) {
         if (scale != 1f) {
             val count = canvas.save()
